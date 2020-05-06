@@ -2,24 +2,12 @@
 
 # a simple bottle based proxy that will serve your github notifications as a localhost rss feed
 
-# it exposes the following feeds:
-#
-# /notifications ... all notifications, no html_url detail, no repo scope token required
-# /notifications/all/detail ... all notifications, html_url detail, repo scope token required
-# /notifications/unread ... unread notifications, no html_url detail, no repo scope token required
-# /notifications/unread/detail ... unread notifications, html_url detail, repo scope token required
-
-# for creating a notifications token see:
-# https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line
-
 # note: if you're using this with detail enabled, it can take quite some time to process e.g. all/detail
 # even though this server streams it output to the client, some readers (e.g. elfeed) can become unhappy,
 # to work around that, you can use the --keep-since mechanism, and initialize the first session with
 # e.g. curl http://localhost:9999/notifications/all/detail outside of the unhappy reader, then connect
 # your reader and it will serve from cache with no delay ... the next time you start with --keep-since
 # it will restore the since state and only serve updates that came in after the last use of the proxy
-
-# if you're seeing unexpected behavior when using --keep-since, quit the proxy and rm .gh_rss*state to fully reset state
 
 import github # pip3 install pygithub
 import bottle # pip3 install bottle
@@ -187,6 +175,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GitHub Notify RSS proxy - v0.1')
     parser.add_argument('--host', type=str, help='host interface to listen on (defaults to localhost)', default='127.0.0.1')
     parser.add_argument('--port', type=int, help='port to listen on (defaults to 9999)', default=9999)
-    parser.add_argument('--keep-since', help='save/restore channel timestamp since last session (prevents re-fetchiing)', action='store_true')
+    parser.add_argument('--keep-since', help='save/restore channel timestamp since last session (prevents re-fetching)', action='store_true')
     args = parser.parse_args()
     GitHubRSS(keep_since=args.keep_since).serve_feeds(args.host, args.port)
