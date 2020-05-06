@@ -28,11 +28,11 @@ class GitHubAPI:
         self.token = os.environ['GITHUB_TOKEN']
         self.github = github.Github(login_or_token=self.token)
 
-    def fetch_notifications(self, since=None):
+    def fetch_notifications(self, all=False, participating=False, since=None):
         if since == None:
-            n = self.github.get_user().get_notifications(all=True)
+            n = self.github.get_user().get_notifications(all=all, participating=participating)
         else:
-            n = self.github.get_user().get_notifications(all=True, since=since)
+            n = self.github.get_user().get_notifications(all=all, participating=participating, since=since)
         return n
 
 class GitHubRSS(bottle.Bottle):
@@ -48,8 +48,19 @@ class GitHubRSS(bottle.Bottle):
         # detail feeds has better urls for clicking convenience but also requires "repo" scope on your access token to work
         self.route('/notifications/<channel>/detail', callback=lambda channel: self.serve_channel(channel, detail=True))
         # pulling all/detail can take a very long time to init, would recommend unread/detail instead
-        self.channels = { 'all' : {'since' : self.inflate_since('all'), 'entries' : [], 'filter' : None},
-                          'unread' : {'since' : self.inflate_since('unread'), 'entries' : [], 'filter' : lambda n: n.unread != True}}
+        self.channels = {'all' : {'since' : self.inflate_since('all'),
+                                  'entries' : [],
+                                  'filter' : None,
+                                  'fetcher' : lambda since: self.github.fetch_notifications(all=True, since=since)},
+                         'unread' : {'since' : self.inflate_since('unread'),
+                                     'entries' : [],
+                                     # for some reason all=False still gets us unread notifications, so add a filter
+                                     'filter' : lambda n: n.unread == False,
+                                     'fetcher' : lambda since: self.github.fetch_notifications(all=False, since=since)},
+                         'participating' : {'since' : self.inflate_since('participating'),
+                                            'entries' : [],
+                                            'filter' : None,
+                                            'fetcher' : lambda since: self.github.fetch_notifications(all=False, participating=True, since=since)}}
 
     # if you're playing around with the since state, remember to rm .gh_rss*state to reset state completely
     def inflate_since(self, channel):
@@ -83,7 +94,7 @@ class GitHubRSS(bottle.Bottle):
 
     def update_channel(self, channel, detail=False):
         # get our new set of notifications
-        notifications = self.github.fetch_notifications(since=self.channels[channel]['since'])
+        notifications = self.channels[channel]['fetcher'](self.channels[channel]['since'])
         channel_updates = []
         update_since = True
         for n in notifications:

@@ -6,6 +6,7 @@ It exposes the following RSS channels:
 
 - `all`, which includes all your github notifications
 - `unread`, which includes only unread notifications
+- `participating`, which includes notifications for anything you are participating or mentioned in
 
 To use a specific channel you can point your reader to `http://your.proxy:port/notifications/<channel>`.
 
@@ -46,7 +47,15 @@ NOTE: If you want to use the `detail` enabled feeds on _private_ repos, you also
 
 ## Use case
 
-I use this to consume my GitHub notifications with [elfeed](https://github.com/skeeto/elfeed) because it has great narrowing capabilities which allows me to sort, slice, and dice my notifications more effectively, without having to leave emacs too much.
+I use this to consume my GitHub notifications with [elfeed](https://github.com/skeeto/elfeed) because it has great narrowing capabilities which allows me to sort, slice, and dice my notifications more effectively, without having to leave emacs too much. For emacs context I only care about the `participating` channel, so I configure my elfeed as such:
+
+```elisp
+  (when (eql my/location 'work)
+    (setq elfeed-feeds
+          (append '(("https://github.com/security-advisories" github infosec advisories)
+                    ("http://localhost:9999/notifications/participating/detail" github notifications participating))
+                  elfeed-feeds)))
+```
 
 Obviously you can also use this with whatever other RSS reader but I'm not sure that gets you much over the standard github notifications interface :)
 
