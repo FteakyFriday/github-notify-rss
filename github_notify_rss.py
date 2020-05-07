@@ -99,8 +99,8 @@ class GitHubRSS(bottle.Bottle):
         update_since = True
         for n in notifications:
             if update_since == True:
-                # we want to use the timestamp of the newest update as our boundary
-                self.channels[channel]['since'] = n.updated_at
+                # we want to use the timestamp of the newest update as the floor for our boundary
+                self.channels[channel]['since'] = n.updated_at + datetime.timedelta(seconds=1)
                 self.deflate_since(channel)
                 update_since = False
             # apply a channel filter if set, skip this notification if filter returns true
