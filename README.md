@@ -51,11 +51,71 @@ I use this to consume my GitHub notifications with [elfeed](https://github.com/s
 
 ```elisp
   (when (eql my/location 'work)
+    (require 's)
+
+    (defvar my/local-ghub-rss-token-path "~/.github-notifier-token.gpg")
+
+    ;; start our notification proxy
+    (when (file-exists-p my/local-ghub-rss-token-path)
+
+      (defvar my/local-ghub-rss-process nil)
+      (defvar my/local-ghub-rss-buffer nil)
+      (defvar my/local-ghub-rss-proxy-path "~/emacs/python-tools/github_notify_rss.py")
+
+      (defun my/local-ghub-rss-filter (proc string)
+        (when (process-live-p proc)
+          (princ (format "%s" string)
+                 (process-buffer proc))))
+
+      (defun my/local-ghub-rss-sentinel (proc string)
+        (message (format "my/local-ghub-rss-sentinel: %s" string)))
+
+      (defun my/ghub-rss-proxy-start-local ()
+        (interactive)
+        (if (not (process-live-p my/local-ghub-rss-process))
+            (let ((proc-buf (generate-new-buffer "*ghub-rss-proxy*")))
+              ;; only make our token available in the process buffer for the proxy
+              (with-current-buffer proc-buf
+                (make-local-variable 'process-environment)
+                ;; make a copy of the env list so we don't modify the original
+                (setq process-environment (copy-sequence process-environment))
+                (setenv "GITHUB_TOKEN"
+                        (s-trim-right
+                         (with-temp-buffer
+                           (insert-file-contents my/local-ghub-rss-token-path)
+                           (buffer-string))))
+                (let* ((default-directory "~/") ; save since state in ~/
+                       (process (start-process
+                                 "ghub-rss-proxy"
+                                 proc-buf
+                                 (expand-file-name my/local-ghub-rss-proxy-path)
+                                 "--keep-since")))
+                  (if (process-live-p process)
+                      (progn
+                        (setq my/local-ghub-rss-process process)
+                        (setq my/local-ghub-rss-buffer proc-buf)
+                        (set-process-filter process 'my/local-ghub-rss-filter)
+                        (set-process-sentinel process 'my/local-ghub-rss-sentinel)
+                        (message "Started ghub-rss-proxy"))
+                    (message "Could not start ghub-rss-proxy")))))
+          (message "ghub-rss-proxy already running")))
+
+      ;; reset the process var on buffer kill
+      (add-hook 'kill-buffer-hook
+                '(lambda () (when (eq (current-buffer) my/local-ghub-rss-buffer)
+                         (setq my/local-ghub-rss-process nil)
+                         (setq my/local-ghub-rss-buffer nil))))
+
+      ;; start the notification proxy
+      (my/ghub-rss-proxy-start-local))
+
     (setq elfeed-feeds
           (append '(("https://github.com/security-advisories" github infosec advisories)
                     ("http://localhost:9999/notifications/participating/detail" github notifications participating))
                   elfeed-feeds)))
 ```
+
+This yokes a github API token out of `~/.github-notifier-token.gpg` and then sets it in a buffer-local process environment for the proxy process, it then spawns the proxy process, and updates my elfeed feeds to include the `participating` channel (with detail enabled).
 
 Obviously you can also use this with whatever other RSS reader but I'm not sure that gets you much over the standard github notifications interface :)
 
