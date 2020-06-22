@@ -115,13 +115,15 @@ class GitHubRSS(bottle.Bottle):
             # you need to enable repo scope on your token for this to work, warning, this can be very slow on the initial fetch
             if detail == True:
                 try:
+                    html_url = None
                     if n.subject.type.lower() == 'pullrequest':
                         print("Fetching PR url ...")
                         html_url = n.get_pull_request().html_url
                     elif n.subject.type.lower() == 'issue':
                         print("Fetching issue url ...")
                         html_url = n.get_issue().html_url
-                    link = html_url
+                    if html_url != None:
+                        link = html_url
                 except github.GithubException as e:
                     print("rss: failed to fetch detail url, enable repo scope on token if you want this to work ...")
                     pass
